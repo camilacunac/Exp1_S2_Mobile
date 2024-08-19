@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">UserApp</string>
+    <string name="separation">separation</string>
+    <string name="bienvenido_inicia_sesi_n">Bienvenido, Inicia Sesión</string>
+</resources>
