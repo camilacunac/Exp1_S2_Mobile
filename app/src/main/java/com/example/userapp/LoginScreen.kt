@@ -23,6 +23,7 @@ import com.example.userapp.R
 import com.example.userapp.RecoverPasswordActivity
 import com.example.userapp.RegisterActivity
 import com.example.userapp.User
+import com.example.userapp.WelcomeActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +150,9 @@ fun LoginScreen(userSingleton: UserSingleton) {
                         val user = userSingleton.registeredUsers.find { it.email == email && it.password == password }
                         if (user != null) {
                             Toast.makeText(context, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
+                            val intent = Intent(context, WelcomeActivity::class.java)
+                            intent.putExtra("userName", user.fullName)
+                            context.startActivity(intent)
                         } else {
                             Toast.makeText(context, "Datos incorrectos", Toast.LENGTH_SHORT).show()
                         }
