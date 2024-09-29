@@ -1,4 +1,7 @@
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,13 +27,16 @@ import com.example.userapp.RecoverPasswordActivity
 import com.example.userapp.RegisterActivity
 import com.example.userapp.User
 import com.example.userapp.WelcomeActivity
+import com.google.firebase.database.FirebaseDatabase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(userSingleton: UserSingleton) {
+fun LoginScreen(
+    emailState: MutableState<String>,
+    passwordState: MutableState<String>,
+    onVoiceInputRequest: (requestCode: Int) -> Unit
+) {
     val context = LocalContext.current
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     val gradientBackground = Brush.linearGradient(
         colors = listOf(Color(0xFFD0021B), Color(0xFF731F73))
     )
@@ -68,9 +74,10 @@ fun LoginScreen(userSingleton: UserSingleton) {
                 Column {
                     Spacer(modifier = Modifier.height(32.dp))
 
+                    // Campo de correo electrónico
                     OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
+                        value = emailState.value,
+                        onValueChange = { emailState.value = it },
                         label = { Text("Correo electronico", color = Color.Red) },
                         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email),
                         singleLine = true,
@@ -78,6 +85,16 @@ fun LoginScreen(userSingleton: UserSingleton) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_email),
                                 contentDescription = null,
+                                tint = Color.Gray
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_mic),
+                                contentDescription = "Voice Input",
+                                modifier = Modifier.clickable {
+                                    onVoiceInputRequest(1)  // Iniciar reconocimiento de voz para correo electrónico
+                                },
                                 tint = Color.Gray
                             )
                         },
@@ -93,9 +110,10 @@ fun LoginScreen(userSingleton: UserSingleton) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Campo de contraseña
                     OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
+                        value = passwordState.value,
+                        onValueChange = { passwordState.value = it },
                         label = { Text("Contraseña", color = Color.Red) },
                         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
                         singleLine = true,
@@ -108,8 +126,11 @@ fun LoginScreen(userSingleton: UserSingleton) {
                         },
                         trailingIcon = {
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_visibility),
-                                contentDescription = null,
+                                painter = painterResource(id = R.drawable.ic_mic),
+                                contentDescription = "Voice Input",
+                                modifier = Modifier.clickable {
+                                    onVoiceInputRequest(2)  // Iniciar reconocimiento de voz para contraseña
+                                },
                                 tint = Color.Gray
                             )
                         },
@@ -125,6 +146,7 @@ fun LoginScreen(userSingleton: UserSingleton) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Recuperar contraseña
                     Text(
                         text = "Olvidaste tu contraseña?",
                         color = Color.Gray,
@@ -140,21 +162,59 @@ fun LoginScreen(userSingleton: UserSingleton) {
 
                 Spacer(modifier = Modifier.height(32.dp))
 
+                // Botón de inicio de sesión
                 Button(
                     onClick = {
-                        if (email.isEmpty() || password.isEmpty()) {
+                        if (emailState.value.isEmpty() || passwordState.value.isEmpty()) {
                             Toast.makeText(context, "Por favor, ingrese su correo electrónico y contraseña.", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
-                        val user = userSingleton.registeredUsers.find { it.email == email && it.password == password }
-                        if (user != null) {
-                            Toast.makeText(context, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
-                            val intent = Intent(context, WelcomeActivity::class.java)
-                            intent.putExtra("userName", user.fullName)
-                            context.startActivity(intent)
-                        } else {
-                            Toast.makeText(context, "Datos incorrectos", Toast.LENGTH_SHORT).show()
+                        val database = FirebaseDatabase.getInstance()
+                        val userRef = database.getReference("users")
+
+                        userRef.get().addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                val snapshot = task.result
+                                var userFound: User? = null
+
+                                if (snapshot != null && snapshot.exists()) {
+                                    // Recorre todos los usuarios en la base de datos
+                                    for (userSnapshot in snapshot.children) {
+                                        try {
+                                            // Intenta mapear el snapshot a la clase User
+                                            val user = userSnapshot.getValue(User::class.java)
+
+                                            if (user != null) {
+                                                // Depuración para revisar los valores
+                                                println("Email en Firebase: ${user.email}, Contraseña en Firebase: ${user.password}")
+                                                // Agrega la lógica de comparación aquí si los datos se mapearon correctamente
+                                                if (user.email == emailState.value.trim() && user.password == passwordState.value.trim()) {
+                                                    userFound = user
+                                                    break
+                                                }
+                                            } else {
+                                                println("Error: el usuario es null")
+                                            }
+                                        } catch (e: Exception) {
+                                            println("Error al obtener el usuario: ${e.message}")
+                                        }
+                                    }
+
+                                    if (userFound != null) {
+                                        Toast.makeText(context, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
+                                        val intent = Intent(context, WelcomeActivity::class.java)
+                                        intent.putExtra("userName", userFound.fullName)
+                                        context.startActivity(intent)
+                                    } else {
+                                        Toast.makeText(context, "Correo electrónico o contraseña incorrectos", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "No se encontraron usuarios en la base de datos", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "Error al acceder a la base de datos", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
                     shape = RoundedCornerShape(50),
@@ -178,6 +238,7 @@ fun LoginScreen(userSingleton: UserSingleton) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Navegar a la pantalla de registro
                 Row(
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
@@ -202,5 +263,9 @@ fun LoginScreen(userSingleton: UserSingleton) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewLoginScreen() {
-    LoginScreen(UserSingleton)
+    LoginScreen(
+        emailState = remember { mutableStateOf("") },
+        passwordState = remember { mutableStateOf("") },
+        onVoiceInputRequest = {}
+    )
 }

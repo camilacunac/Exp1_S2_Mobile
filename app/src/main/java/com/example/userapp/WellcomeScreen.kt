@@ -104,5 +104,5 @@ fun WelcomeScreen(user: User) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomeScreen() {
-    WelcomeScreen(User("Usuario", "", ""))
+    WelcomeScreen(User("Usuario", "", "", ""))
 }

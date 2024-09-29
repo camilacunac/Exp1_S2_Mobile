@@ -1,4 +1,6 @@
+import android.content.Context
 import android.content.Intent
+import android.location.Geocoder
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,18 +26,46 @@ import androidx.compose.ui.unit.sp
 import com.example.userapp.MainActivity
 import com.example.userapp.R
 import com.example.userapp.User
+import com.google.firebase.database.FirebaseDatabase
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(userSingleton: UserSingleton) {
+fun RegisterScreen(
+    userSingleton: UserSingleton,
+    onRequestLocationPermission: () -> Unit
+) {
     val context = LocalContext.current
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     val gradientBackground = Brush.linearGradient(
         colors = listOf(Color(0xFFD0021B), Color(0xFF731F73))
     )
+
+    // Obtener la ubicación
+    fun fetchLocation() {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    val geocoder = Geocoder(context, Locale.getDefault())
+                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    if (addresses != null && addresses.isNotEmpty()) {
+                        city = addresses[0].locality ?: ""
+                    }
+                }
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(context, "Error obteniendo la ubicación", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -71,6 +101,7 @@ fun RegisterScreen(userSingleton: UserSingleton) {
                 Column {
                     Spacer(modifier = Modifier.height(32.dp))
 
+                    // Nombre completo
                     OutlinedTextField(
                         value = fullName,
                         onValueChange = { fullName = it },
@@ -96,6 +127,7 @@ fun RegisterScreen(userSingleton: UserSingleton) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Correo electrónico
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -121,6 +153,44 @@ fun RegisterScreen(userSingleton: UserSingleton) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Ciudad
+                    OutlinedTextField(
+                        value = city,
+                        onValueChange = { city = it },
+                        label = { Text("Ciudad", color = Color.Red) },
+                        keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_location),
+                                contentDescription = null,
+                                tint = Color.Gray
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_location),
+                                contentDescription = "Obtener ubicación",
+                                modifier = Modifier.clickable {
+                                    onRequestLocationPermission()
+                                    fetchLocation()
+                                },
+                                tint = Color.Gray
+                            )
+                        },
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = Color.LightGray
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, shape = RoundedCornerShape(10.dp))
+                            .padding(vertical = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Contraseña
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -153,6 +223,7 @@ fun RegisterScreen(userSingleton: UserSingleton) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Confirmar contraseña
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
@@ -188,7 +259,7 @@ fun RegisterScreen(userSingleton: UserSingleton) {
 
                 Button(
                     onClick = {
-                        if (fullName.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                        if (fullName.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() || city.isEmpty()) {
                             Toast.makeText(context, "Todos los campos son obligatorios.", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
@@ -203,14 +274,22 @@ fun RegisterScreen(userSingleton: UserSingleton) {
                             return@Button
                         }
 
-                        val newUser = User(fullName, email, password)
-                        userSingleton.registeredUsers.add(newUser)
-                        Toast.makeText(context, "Usuario registrado con éxito", Toast.LENGTH_SHORT).show()
+                        val newUser = User(fullName, email, password, city)
+                        val database = FirebaseDatabase.getInstance()
+                        val userRef = database.getReference("users")
+                        userRef.push().setValue(newUser).addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Toast.makeText(context, "Usuario registrado con éxito", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Error en la base de datos", Toast.LENGTH_SHORT).show()
+                            }
+                        }
 
                         fullName = ""
                         email = ""
                         password = ""
                         confirmPassword = ""
+                        city = ""
                     },
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
@@ -257,5 +336,5 @@ fun RegisterScreen(userSingleton: UserSingleton) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewRegisterScreen() {
-    RegisterScreen(UserSingleton)
+    RegisterScreen(userSingleton = UserSingleton, onRequestLocationPermission = {})
 }

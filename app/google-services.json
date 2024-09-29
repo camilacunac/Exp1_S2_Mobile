@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "675730444820",
+    "firebase_url": "https://exp3-s8-mobile-default-rtdb.firebaseio.com",
+    "project_id": "exp3-s8-mobile",
+    "storage_bucket": "exp3-s8-mobile.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:675730444820:android:79beb0f0bc90f06a0b0d01",
+        "android_client_info": {
+          "package_name": "com.example.userapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6ZX-k2kGI7goAaolgpbOXY76DSS7FTJw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -10,7 +10,7 @@ class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val userName = intent.getStringExtra("userName") ?: "Usuario"
-        val user = User(userName, "", "")
+        val user = User(userName, "", "", "")
 
         setContent { WelcomeScreen(user = user)
         }
